@@ -62,7 +62,21 @@
 запросы и ответы со стороны сервиса для **всех** его операций.
 
 #### Демонстрация работы
-todo
+## Запрос Post 
+![Post.png](images/screenshots1/Post.png)
+
+## Запрос Get 
+![Get.png](images/screenshots1/Get.png)
+
+## Запрос Put 
+![Put.png](images/screenshots1/Put.png)
+
+## Запрос List (GET .../products)
+![List.png](images/screenshots1/List.png)
+
+## Запрос Delete (показано, что продукт 1 действительно исчез)
+![Delete2.png](images/screenshots1/Delete2.png)
+![Delete1.png](images/screenshots1/Delete1.png)
 
 ### Задание В (4 балла)
 Пусть ваш продукт также имеет иконку (небольшую картинку). Формат иконки (картинки) может
