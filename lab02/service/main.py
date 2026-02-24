@@ -1,14 +1,18 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Optional, List
+from pathlib import Path
+import shutil
 
-app = FastAPI(title="Simple Product REST Service")
+app = FastAPI(title="Funny title")
 
 
 class Product(BaseModel):
     id: int
     name: str
     description: str
+    icon: Optional[str]
 
 
 class ProductProject(BaseModel):
@@ -27,7 +31,8 @@ def create_product(product: ProductProject):
     new_product = Product(
         id=next_id,
         name=product.name,
-        description=product.description
+        description=product.description,
+        icon=None
     )
     products[next_id] = new_product
     next_id += 1
@@ -73,3 +78,44 @@ def delete_product(product_id: int):
 @app.get("/products", response_model=List[Product])
 def get_all_products():
     return list(products.values())
+
+
+IMAGES_DIR = Path("images/products")
+
+
+@app.post("/product/{product_id}/image")
+def upload_product_image(
+        product_id: int,
+        image: UploadFile = File(...)
+):
+    product = products.get(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    product_dir = IMAGES_DIR / str(product_id)
+    product_dir.mkdir(parents=True, exist_ok=True)
+
+    file_path = product_dir / image.filename
+
+    with file_path.open("wb") as file:
+        shutil.copyfileobj(image.file, file)
+
+    product.icon = str(file_path)
+    products[product_id] = product
+
+    return {
+        "message": "Image uploaded successfully",
+        "icon": product.icon
+    }
+
+
+@app.get("/product/{product_id}/image")
+def get_product_image(product_id: int):
+    product = products.get(product_id)
+    if not product or not product.icon:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return FileResponse(
+        path=product.icon,
+        media_type="image/png"
+    )
