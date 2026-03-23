@@ -16,8 +16,8 @@ class Product(BaseModel):
 
 
 class ProductProject(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str
+    description: str
 
 
 products: Dict[int, Product] = {}
