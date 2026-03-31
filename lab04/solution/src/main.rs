@@ -1,20 +1,27 @@
+mod blacklist;
+mod client;
+mod message;
 mod request;
 mod response;
-mod message;
 mod stream;
-mod client;
 
-use tokio::net::{TcpListener};
+use crate::blacklist::Blacklist;
 use crate::client::handle_client;
+use std::sync::Arc;
+use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let port = args
         .get(1)
-        .expect("Usage: Cargo run <port>")
+        .expect("Usage: Cargo run <port> [blacklist_path]")
         .parse::<u16>()
         .expect("Port must be a number");
+
+    let blacklist_path = args.get(2);//.expect("Usage: Cargo run <port> [blacklist_path]");
+
+    let blacklist = Arc::new(Blacklist::from_file(blacklist_path).await?);
 
     let listener = TcpListener::bind(format!("localhost:{port}"))
         .await
@@ -27,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
             continue;
         }
         let (stream, _) = connection?;
-        tokio::spawn(async move { handle_client(stream).await });
+        let blklst = blacklist.clone();
+        tokio::spawn(async move { handle_client(stream, blklst).await });
     }
 }
-

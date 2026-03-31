@@ -1,9 +1,12 @@
+use std::sync::Arc;
 use crate::request::HttpRequest;
 use crate::response::HttpResponse;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use crate::blacklist::Blacklist;
 
-pub async fn handle_client(mut client_stream: TcpStream) {
+pub async fn handle_client(mut client_stream: TcpStream, blacklist: Arc<Blacklist>
+) {
     println!(
         "received connection from {}",
         client_stream.peer_addr().unwrap()
@@ -17,7 +20,7 @@ pub async fn handle_client(mut client_stream: TcpStream) {
         }
     };
 
-    let response = make_response(&mut request).await;
+    let response = make_response(&mut request, blacklist).await;
     let response = match response {
         Ok(v) => v,
         Err(err) => {
@@ -33,8 +36,8 @@ pub async fn handle_client(mut client_stream: TcpStream) {
     client_stream.flush().await.unwrap();
 }
 
-async fn make_response(request: &mut HttpRequest) -> anyhow::Result<HttpResponse> {
-    request.send().await
+async fn make_response(request: &mut HttpRequest,  blacklist: Arc<Blacklist>) -> anyhow::Result<HttpResponse> {
+    request.send(blacklist).await
 }
 
 async fn response_with_error(client_stream: &mut TcpStream, message: String, code: String) {

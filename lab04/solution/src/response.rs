@@ -80,7 +80,7 @@ impl HttpResponse {
         let mut buf = Vec::new();
 
         self.version.as_ref().map(|_| {
-            buf.extend_from_slice(format!("HTTP/{} ",1.1).as_bytes());
+            buf.extend_from_slice(format!("HTTP/{} ", 1.1).as_bytes());
         });
 
         self.code.as_ref().map(|x| {
@@ -111,5 +111,67 @@ impl HttpResponse {
 
         let response = HttpResponse::from_bytes(header_len, data)?;
         Ok(response)
+    }
+}
+
+pub fn blocked_response(url: &str) -> HttpResponse {
+    let body = format!(
+        r#"<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Access Blocked</title>
+<style>
+body {{
+    font-family: sans-serif;
+    background: #f6f7f9;
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+}}
+.card {{
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    max-width: 600px;
+}}
+h1 {{ color: #d32f2f; }}
+code {{
+    background: #eee;
+    padding: 3px 6px;
+    border-radius: 4px;
+}}
+</style>
+</head>
+<body>
+<div class="card">
+<h1> Request Blocked</h1>
+<p>This request was blocked by the proxy server.</p>
+<p>URL:</p>
+<p><code>{}</code></p>
+</div>
+</body>
+</html>"#,
+        url
+    );
+
+    let mut headers = HashMap::new();
+
+    headers.insert("Content-Type".into(), "text/html; charset=utf-8".into());
+
+    headers.insert("Content-Length".into(), body.as_bytes().len().to_string());
+
+    headers.insert("Connection".into(), "close".into());
+
+    headers.insert("Server".into(), "SanyaProxy/1.0".into());
+
+    HttpResponse {
+        version: Some("HTTP/1.1".into()),
+        code: Some("403".into()),
+        reason: Some("Forbidden".into()),
+        headers,
+        body: body.into_bytes(),
     }
 }

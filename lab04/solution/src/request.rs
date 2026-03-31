@@ -31,11 +31,12 @@ pub struct HttpRequest {
     body: Vec<u8>,
 }
 
+use crate::blacklist::Blacklist;
 use crate::message::{get_content_length, MessageParser};
-use crate::response::HttpResponse;
+use crate::response::{blocked_response, HttpResponse};
 use crate::stream::read_message;
 use std::io;
-use anyhow::Context;
+use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
@@ -95,10 +96,15 @@ impl HttpRequest {
         let tmp = self.path.clone();
         let splited = tmp.split_once('/');
         if splited.is_none() {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("failed to split path {}", tmp)).into());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("failed to split path {}", tmp),
+            )
+            .into());
         }
         self.path = splited.clone().unwrap().1.to_owned();
-        self.headers.insert("host".parse()?, splited.clone().unwrap().0.to_owned());
+        self.headers
+            .insert("host".parse()?, splited.clone().unwrap().0.to_owned());
         println!("path after redirection: {}", self.path);
         Ok(splited.unwrap().0.to_owned())
     }
@@ -130,11 +136,12 @@ impl HttpRequest {
         Ok(request)
     }
 
-    pub async fn send(&mut self) -> anyhow::Result<HttpResponse> {
+    pub async fn send(&mut self, blacklist: Arc<Blacklist>) -> anyhow::Result<HttpResponse> {
         let adress = self.truncate_adress()?;
-        println!("adress: {}", adress);
+        if blacklist.is_blocked(&*adress) {
+            return Ok(blocked_response(&*adress));
+        }
         let stream = TcpStream::connect(adress.clone()).await;
-        println!("adress {}", adress);
         if stream.is_err() {
             return Err(stream.err().unwrap().into());
         }
