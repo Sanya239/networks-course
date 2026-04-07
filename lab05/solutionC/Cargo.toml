@@ -1,0 +1,17 @@
+[package]
+name = "solutionC"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[dependencies]
+anyhow = "1.0.102"
+chrono = "0.4.44"
+socket2 = "0.5"
