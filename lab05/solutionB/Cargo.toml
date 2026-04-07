@@ -1,0 +1,17 @@
+[package]
+name = "solutionB"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[dependencies]
+httparse = "1.10.1"
+tokio = { version = "1.50.0", features = ["rt", "rt-multi-thread", "macros", "net", "io-util", "fs", "process"] }
+anyhow = "1.0.102"
