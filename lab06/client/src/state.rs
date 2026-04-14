@@ -11,22 +11,18 @@ pub enum Screen {
 pub struct AppState {
     pub(crate) screen: Screen,
 
-    // login
     pub(crate) host: String,
     pub(crate) user: String,
     pub(crate) pass: String,
 
-    // ftp
     pub(crate) ftp: Option<ControlFlow>,
 
-    // browser
     pub(crate) current_path: String,
     pub(crate) files: Vec<String>,
 
-    // file view
+    pub(crate) editing_file: Option<String>,
     pub(crate) file_content: Vec<u8>,
 
-    // misc
     pub(crate) error: Option<String>,
     pub(crate) loading: bool,
 }
@@ -36,12 +32,13 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             screen: Screen::Login,
-            host: "10.41.193.143:2221".into(),
-            user: "android".into(),
-            pass: "android".into(),
+            host: "0.0.0.0:2121".into(),
+            user: "dlpuser".into(),
+            pass: "rNrKYTX9g7z3RgJRmxWuGHbeu".into(),
             ftp: None,
             current_path: "/".into(),
             files: vec![],
+            editing_file: None,
             file_content: vec![],
             error: None,
             loading: false,

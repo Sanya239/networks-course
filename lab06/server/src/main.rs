@@ -217,23 +217,19 @@ fn handle_client(mut stream: TcpStream) {
                                 Err(_) => continue,
                             };
 
-                            // type
                             let file_type = if metadata.is_dir() {
                                 "dir"
                             } else {
                                 "file"
                             };
 
-                            // size
                             let size = metadata.len();
 
-                            // modify time
                             let modify = metadata.modified()
                                 .ok()
                                 .and_then(|t| format_ftp_time(t).ok())
                                 .unwrap_or_else(|| "19700101000000".to_string());
 
-                            // собираем строку
                             if file_type == "file" {
                                 writeln!(
                                     data_stream,

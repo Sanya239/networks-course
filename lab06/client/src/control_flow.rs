@@ -61,13 +61,19 @@ impl ControlFlow {
 
     pub fn user(&mut self, user: &str) -> Result<()> {
         self.send_cmd(&format!("USER {}", user))?;
-        let a = self.read()?;
+        let (code, message) = self.read()?;
+        if code>=300 {
+            bail!("PASS: received code {}: {}", code, message.join("\n"));
+        }
         Ok(())
     }
 
     pub fn pass(&mut self, pass: &str) -> Result<()> {
         self.send_cmd(&format!("PASS {}", pass))?;
-        let a = self.read()?;
+        let (code, message) = self.read()?;
+        if code>=300 {
+            bail!("PASS: received code {}: {}", code, message.join("\n"));
+        }
         Ok(())
     }
 
@@ -86,9 +92,11 @@ impl ControlFlow {
 
     fn enter_pasv(&mut self) -> Result<String> {
         self.send_cmd("PASV")?;
-        let (_, lines) = self.read()?;
-
-        let line = &lines[0];
+        let (code, message) = self.read()?;
+        if code>=300 {
+            bail!("PASV: received code {}: {}", code, message.join("\n"));
+        }
+        let line = &message[0];
         let start = line.find('(').unwrap();
         let end = line.find(')').unwrap();
 
@@ -109,8 +117,13 @@ impl ControlFlow {
         let mut data_stream = TcpStream::connect(addr)?;
 
         self.send_cmd("MLSD")?;
-        let (code, message) = self.read()?; // 150|125
-        if(code>=200){
+        let (mut code, mut message) = self.read()?; // 150|125
+        if code==500{
+            self.send_cmd("LIST")?;
+             (code, message) = self.read()?; // 150|125
+        }
+        if code>=200 {
+
             bail!("Received code {}: {}", code, message.join("\n"));
         }
         let mut data = Vec::new();

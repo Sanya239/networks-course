@@ -1,8 +1,8 @@
 use crate::control_flow::ControlFlow;
+use crate::state::{AppState, Screen};
 use anyhow::Result;
 use eframe::egui;
 use log::info;
-use crate::state::{AppState, Screen};
 
 #[derive(Default)]
 pub struct MyApp {
@@ -15,44 +15,56 @@ impl eframe::App for MyApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        match self.state.screen {
-            Screen::Login => self.draw_login(ctx),
-            Screen::Browser => self.draw_browser(ctx),
-            Screen::FileView => self.draw_file(ctx),
-        }
+        egui::CentralPanel::default().show(ctx, |ui| {
+            self.login_section(ui);
+            match self.state.screen {
+                Screen::Browser => self.draw_browser(ui),
+                Screen::FileView => self.draw_file(ui),
+                _ => {}
+            }
+
+            self.quit_button(ctx, ui);
+        });
     }
 }
 
 impl MyApp {
     pub fn new() -> Self {
-        Self { state: AppState::default() }
+        Self {
+            state: AppState::default(),
+        }
     }
 
-    fn draw_login(&mut self, ctx: &eframe::egui::Context) {
-        info!("draw login");
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("FTP Client");
+    fn quit_button(&self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        if ui.button("Quit").clicked() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }
 
-            ui.label("Host");
-            ui.text_edit_singleline(&mut self.state.host);
+    fn login_section(&mut self, ui: &mut egui::Ui) {
+        ui.set_width(ui.available_width());
+        ui.group(|ui| {
+            egui::Grid::new("signin").num_columns(2)
+                .spacing([20.0, 8.0]).show(ui, |ui| {
+                ui.label("Host");
+                ui.add(egui::TextEdit::singleline(&mut self.state.host).password(false).desired_width(200.0));
+                ui.end_row();
 
-            ui.label("User");
-            ui.text_edit_singleline(&mut self.state.user);
+                ui.label("User");
+                ui.add(egui::TextEdit::singleline(&mut self.state.user).password(false).desired_width(200.0));
+                ui.end_row();
 
-            ui.label("Password");
-            ui.add(egui::TextEdit::singleline(&mut self.state.pass).password(true));
+                ui.label("Password");
+                ui.add(egui::TextEdit::singleline(&mut self.state.pass).password(true).desired_width(200.0));
 
-            if ui.button("Connect").clicked() {
-                self.connect();
-                if self.state.error.is_none() {
-                    self.load_list();
+                if ui.button("Connect").clicked() {
+                    self.connect();
+                    if self.state.error.is_none() {
+                        self.load_list();
+                    }
                 }
-            }
-
-            if ui.button("Quit").clicked() {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
-
+                ui.end_row();
+            });
             if let Some(err) = &self.state.error {
                 ui.colored_label(egui::Color32::RED, err);
             }
@@ -69,8 +81,8 @@ impl MyApp {
 
         let result = || -> Result<ControlFlow> {
             let mut ftp = ControlFlow::connect(&host)?;
-            ftp.user(&user);
-            ftp.pass(&pass);
+            ftp.user(&user)?;
+            ftp.pass(&pass)?;
             ftp.type_i()?;
             Ok(ftp)
         }();
@@ -89,11 +101,10 @@ impl MyApp {
         self.state.loading = false;
     }
 
-    fn draw_browser(&mut self, ctx: &egui::Context) {
-        info!("draw browser");
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(format!("Path: {}", self.state.current_path));
+    fn draw_browser(&mut self, ui: &mut egui::Ui) {
+        ui.heading(format!("Path: {}", self.state.current_path));
 
+        ui.horizontal(|ui| {
             if ui.button("Refresh").clicked() {
                 self.load_list();
             }
@@ -101,20 +112,44 @@ impl MyApp {
             if ui.button("Upload").clicked() {
                 self.upload();
             }
-            if ui.button("Quit").clicked() {
-                // Send a command to the window/viewport to close
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
+        });
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for file in &self.state.files.clone() {
-                    if ui.button(file).clicked() {
-                        self.open_entry(file.clone());
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for file in self.state.files.clone() {
+                ui.horizontal(|ui| {
+                    let fields = file.split(";").collect::<Vec<_>>();
+                    let mut filename = file.clone();
+                    if fields.len() > 1 {
+                        filename = fields.last().unwrap().trim().to_string();
                     }
-                }
-            });
+                    ui.label(filename);
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Delete").clicked() {
+                            self.delete(file.clone());
+                        }
+
+                        if ui.button("Open").clicked() {
+                            self.open_entry(file.clone());
+                        }
+                    });
+                });
+
+                ui.separator();
+            }
         });
     }
+    fn delete(&mut self, file: String) {
+        let ftp = self.state.ftp.as_mut().unwrap();
+
+        if let Err(e) = ftp.dele(&file) {
+            self.state.error = Some(e.to_string());
+            return;
+        }
+
+        self.load_list();
+    }
+
 
     fn load_list(&mut self) {
         info!("load list");
@@ -170,13 +205,12 @@ impl MyApp {
     }
 
     fn open_file(&mut self, file: String) {
-        info!("open file: {}", file);
         let ftp = self.state.ftp.as_mut().unwrap();
-        info!("file is ready");
+
         match ftp.retr(&file) {
             Ok(data) => {
-                self.state.file_content = data.clone();
-                info!("{}", String::from_utf8_lossy(&*data).to_string());
+                self.state.file_content = data;
+                self.state.editing_file = Some(file);
                 self.state.screen = Screen::FileView;
             }
             Err(e) => {
@@ -185,22 +219,68 @@ impl MyApp {
         }
     }
 
-    fn draw_file(&mut self, ctx: &egui::Context) {
-        info!("draw file");
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn draw_file(&mut self, ui: &mut egui::Ui) {
+        let filename = self.state.editing_file.clone().unwrap_or_default();
+
+        ui.heading(format!("Editing: {}", filename));
+
+        ui.horizontal(|ui| {
             if ui.button("Back").clicked() {
                 self.state.screen = Screen::Browser;
+                self.state.editing_file = None;
             }
-            if ui.button("Quit").clicked() {
-                // Send a command to the window/viewport to close
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
-            let text = String::from_utf8_lossy(&self.state.file_content);
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.label(text);
-            });
+            if ui.button("Commit").clicked() {
+                self.commit();
+            }
+
+            if ui.button("Save to disk").clicked() {
+                self.save_to_disk();
+            }
         });
+
+        let mut text = String::from_utf8_lossy(&self.state.file_content).to_string();
+
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.add(
+                egui::TextEdit::multiline(&mut text)
+                    .desired_width(f32::INFINITY)
+                    .desired_rows(25),
+            );
+        });
+
+        self.state.file_content = text.into_bytes();
+    }
+
+    fn commit(&mut self) {
+        let ftp = self.state.ftp.as_mut().unwrap();
+
+        if let Some(file) = &self.state.editing_file {
+            if let Err(e) = ftp.stor(file, &self.state.file_content) {
+                self.state.error = Some(e.to_string());
+                return;
+            }
+        }
+
+        self.state.screen = Screen::Browser;
+        self.load_list();
+    }
+
+    fn save_to_disk(&mut self) {
+        let default_name = self
+            .state
+            .editing_file
+            .clone()
+            .unwrap_or_else(|| "file.txt".to_string());
+
+        if let Some(path) = rfd::FileDialog::new()
+            .set_file_name(&default_name)
+            .save_file()
+        {
+            if let Err(e) = std::fs::write(&path, &self.state.file_content) {
+                self.state.error = Some(e.to_string());
+            }
+        }
     }
 
     fn upload(&mut self) {
