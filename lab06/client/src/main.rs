@@ -5,6 +5,7 @@ use crate::app::MyApp;
 // Import necessary parts of eframe and egui
 mod control_flow;
 mod app;
+mod state;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init();

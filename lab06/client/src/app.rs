@@ -1,7 +1,9 @@
-use eframe::egui;
-use log::info;
 use crate::control_flow::ControlFlow;
 use anyhow::Result;
+use eframe::egui;
+use log::info;
+use crate::state::{AppState, Screen};
+
 #[derive(Default)]
 pub struct MyApp {
     state: AppState,
@@ -21,57 +23,12 @@ impl eframe::App for MyApp {
     }
 }
 
-#[derive(Default)]
-enum Screen {
-    #[default]
-    Login,
-    Browser,
-    FileView,
-}
-
-#[derive(Default)]
-struct AppState {
-    screen: Screen,
-
-    // login
-    host: String,
-    user: String,
-    pass: String,
-
-    // ftp
-    ftp: Option<ControlFlow>,
-
-    // browser
-    current_path: String,
-    files: Vec<String>,
-
-    // file view
-    file_content: Vec<u8>,
-
-    // misc
-    error: Option<String>,
-    loading: bool,
-}
-
 impl MyApp {
     pub fn new() -> Self {
-        Self {
-            state: AppState {
-                screen: Screen::Login,
-                host: "10.41.193.143:2221".into(),
-                user: "android".into(),
-                pass: "android".into(),
-                ftp: None,
-                current_path: "/".into(),
-                files: vec![],
-                file_content: vec![],
-                error: None,
-                loading: false,
-            },
-        }
+        Self { state: AppState::default() }
     }
 
-    fn draw_login(&mut self, ctx: & eframe::egui::Context) {
+    fn draw_login(&mut self, ctx: &eframe::egui::Context) {
         info!("draw login");
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("FTP Client");
@@ -181,7 +138,7 @@ impl MyApp {
         let fields = name.split(";").collect::<Vec<_>>();
         if fields.len() > 1 {
             let filename = fields.last().unwrap().trim().to_string();
-            if name.starts_with("type=dir") {
+            if name.to_lowercase().find("type=dir").is_some() {
                 self.cwd(filename);
             } else {
                 self.open_file(filename);

@@ -109,8 +109,8 @@ impl ControlFlow {
         let mut data_stream = TcpStream::connect(addr)?;
 
         self.send_cmd("MLSD")?;
-        let (code, message) = self.read()?; // 150
-        if(code!=150){
+        let (code, message) = self.read()?; // 150|125
+        if(code>=200){
             bail!("Received code {}: {}", code, message.join("\n"));
         }
         let mut data = Vec::new();
@@ -188,5 +188,23 @@ impl ControlFlow {
         let end = line[start + 1..].find('"').unwrap() + start + 1;
 
         Ok(line[start + 1..end].to_string())
+    }
+
+    pub fn dele(&mut self, file: &str) -> Result<()> {
+        self.send_cmd(&format!("DELE {}", file))?;
+
+        let (code, message) = self.read()?;
+
+        if code != 250 {
+            bail!("DELE failed with code {}: {}", code, message.join("\n"));
+        }
+
+        Ok(())
+    }
+
+    pub fn modify(&mut self, file: &str, data: Vec<u8>) -> Result<()> {
+        self.dele(file)?;
+
+        self.stor(file, &data)
     }
 }
