@@ -1,0 +1,18 @@
+[package]
+name = "stop-and-wait"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[dependencies]
+anyhow = "1.0.102"
+env_logger = "0.11.10"
+log = "0.4.29"
+rand = "0.10.1"
